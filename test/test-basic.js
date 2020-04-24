@@ -2,7 +2,6 @@ const chai = require('chai');
 const expect = require('chai').expect;
 const chaiHttp = require('chai-http');
 chai.use(chaiHttp);
-const _ = require('lodash');
 
 let knockKnock = require('../knock-knock')({});
 

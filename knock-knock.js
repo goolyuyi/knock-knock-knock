@@ -1,5 +1,4 @@
 const assert = require('assert');
-const util = require('util');
 
 let schemaInterface = {};
 
@@ -25,18 +24,19 @@ schemaInterface.hasRequiredFunction =
 schemaInterface.optional = {
     login: [
         'login',//async function (req, res)
-        'verify',//async function (req,res)
+        'loginResponse',//async function (req, res)
         'oauthLogin',//async function (req, res)
         'oauthCallback'//async function (req, res)
     ],
     auth: [
         'create',//async function (req, res)
         'auth',//async function (req, res)
+        'authResponse',//async function (req, res)
         'revoke'//async function (req,res)
     ]
 };
 
-schemaInterface.common = {
+schemaInterface.lazy = {
     login: [
         'login',
         'oauthLogin',
@@ -49,8 +49,8 @@ schemaInterface.common = {
 };
 
 function normalizeOption(option) {
-    let opt = option ? option : {};
-    opt.throwUnauthorizedError = option.throwUnauthorizedError || true;
+    option = option ? option : {};
+    option.throwUnauthorizedError = option.throwUnauthorizedError || true;
 
     /**
      * async function (schema,req,res)
@@ -58,8 +58,9 @@ function normalizeOption(option) {
      * @param req
      * @param res
      */
-    opt.globalVerify = option.globalVerify && typeof option.globalVerify === 'function' ? option.globalVerify : undefined;
-    return opt;
+    option.globalLoginResponse = option.globalLoginResponse && typeof option.globalLoginResponse === 'function' ? option.globalLoginResponse : undefined;
+    option.globalAuthResponse = option.globalAuthResponse && typeof option.globalAuthResponse === 'function' ? option.globalAuthResponse : undefined;
+    return option;
 }
 
 class KnockKnock {
@@ -69,6 +70,7 @@ class KnockKnock {
         this.option = normalizeOption(option);
     }
 
+    // eslint disable-next-line
     static symbolDefault = Symbol('default');
 
     /**
@@ -154,54 +156,61 @@ class KnockKnock {
         return req.params[param] || req.query[param] || req.cookies[param] || req.body[param];
     }
 
-    /**
-     *
-     * @return {function(...[*]=)}
-     * @param schema
-     */
-    _manual(schema) {
-        return async (req, res) => {
+    _manual(schema, req, res) {
+        function setUser(user) {
+            if (user) {
+                if (typeof user !== 'object') user = {user: user};
+                req.user = user;
+            }
+            return user;
+        }
+
+        let login = async () => {
             assert(this.valid);
 
-            function setUser(user) {
-                if (user) {
-                    if (typeof user !== 'object') user = {user: user};
-                    req.user = user;
-                } else {
-                    delete req.user;
+            let user = setUser(await schema[schemaInterface.interface.login](req, res) || req.user);
+            if (res.headersSent)
+                throw new module.exports.UnauthorizedError("don't end res in schema", schema);
+
+            if (user && !req.unauthorizedError) {
+                let auth = this._preferSchema(this._getParamFromReq(req, schemaInterface.interface.auth), 'auth');
+                if (auth && typeof auth['create'] === 'function') {
+                    await auth['create'](req, res);
                 }
-                return user;
             }
 
-            let done = async () => {
-                try {
-                    let user = setUser(await schema[schemaInterface.interface.login](req, res) || req.user);
-                    if (!user) throw new module.exports.UnauthorizedError(`can't login`);
-
-                    if (typeof (schema['verify']) === 'function')
-                        user = setUser(await schema['verify'](req, res) || req.user);
-                    else if (this.option.globalVerify) {
-                        user = setUser(await this.option.globalVerify(schema, req, res));
-                    }
-
-                    let auth = this._preferSchema(this._getParamFromReq(req, schemaInterface.interface.auth), 'auth');
-                    if (auth && typeof auth['create'] === 'function') {
-                        user = setUser(await auth['create'](req, res));
-                    }
-
-                    if (!user && !req.unauthorizedError) throw new module.exports.UnauthorizedError(`can't auth`);
-                } catch (err) {
-                    req.unauthorizedError = new module.exports.UnauthorizedError(`internal error`, err);
-                }
-                if (req.unauthorizedError && this.option.throwUnauthorizedError) throw req.unauthorizedError;
+            if (typeof (schema['loginResponse']) === 'function') {
+                await schema['loginResponse'](req, res);
             }
-            await done();
+            if (this.option.globalLoginResponse) {
+                await this.option.globalLoginResponse(schema, req, res);
+            }
+
         };
+
+        let auth = async () => {
+            setUser(await schema[schemaInterface.interface.auth](req, res) || req.user);
+            if (res.headersSent)
+                throw new module.exports.UnauthorizedError("don't end res in schema", schema);
+
+            if (typeof (schema['authResponse']) === 'function') {
+                await schema['authResponse'](req, res);
+            }
+            if (this.option.globalAuthResponse) {
+                await this.option.globalAuthResponse(schema, req, res);
+            }
+        }
+
+        return {login, auth};
+    }
+
+    lazy(router) {
+
     }
 }
 
 (function createOptionalMethods() {
-    for (let [type, methods] of Object.entries(schemaInterface.common)) {
+    for (let [type, methods] of Object.entries(schemaInterface.lazy)) {
         methods.forEach((method) => {
                 KnockKnock.prototype[method] = function (schemaName) {
                     let schema;
@@ -212,6 +221,8 @@ class KnockKnock {
                     return async (req, res, next) => {
                         try {
                             assert(this.valid);
+
+                            //deduce schema hint from req
                             if (!schema) {
                                 schema = this._preferSchema(
                                     this._getParamFromReq(req, type === 'login' ?
@@ -220,30 +231,37 @@ class KnockKnock {
                                     )
                                     , type);
                             }
+
+
                             assert(schema && typeof (schema[method]) === 'function');
+                            let isInterfaceMethod = Object.values(schemaInterface.interface).some(
+                                (v) => {
+                                    return schema[v] === schema[method]
+                                }
+                            )
 
-                            let user;
-
-                            if (schema[schemaInterface.interface.login] === schema[method]) {
-                                if (type === 'login') await this._manual(schema)(req, res);
-                                else user = await schema[method](req, res) || req.user;
+                            if (isInterfaceMethod) {
+                                let user = await this._manual(schema, req, res)[type]();
                                 user = user || req.user;
                                 if (!user && !req.unauthorizedError) {
                                     req.unauthorizedError = new module.exports.UnauthorizedError(
-                                        `must set req.user if success or set req.unauthorizedError otherwise`
+                                        `must set req.user if login/auth success or set req.unauthorizedError otherwise`, schema
                                     );
                                 }
+
                             } else {
-                                await schema[method](req, res) || req.user;
+                                await schema[method](req, res);
                             }
 
-                            if (req.unauthorizedError && this.option.throwUnauthorizedError) {
-                                return next(req.unauthorizedError);
+                            if (req.unauthorizedError) {
+                                throw req.unauthorizedError;
                             }
 
                             next();
-                        } catch (err) {
-                            req.unauthorizedError = new module.exports.UnauthorizedError(`internal error`, err);
+                        } catch
+                            (err) {
+                            if (!(err instanceof module.exports.UnauthorizedError))
+                                req.unauthorizedError = new module.exports.UnauthorizedError(`internal error`, schema, err);
 
                             if (this.option.throwUnauthorizedError) {
                                 next(req.unauthorizedError);

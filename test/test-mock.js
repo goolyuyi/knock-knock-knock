@@ -18,7 +18,6 @@ describe('knock-knock', function () {
         });
         after(function () {
             agent.close();
-            process.exit();
         });
 
     })

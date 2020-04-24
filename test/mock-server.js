@@ -8,6 +8,8 @@ app.use(cookieParser());
 let knockKnock = require('../knock-knock')({});
 knockKnock.enable('test', require('./sample-schema'), true);
 
-app.post('/login', knockKnock.login());
+app.post('/login', knockKnock.login(), (req, res, next) => {
+    res.send('okay');
+});
 
 module.exports = app;
