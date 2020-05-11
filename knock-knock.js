@@ -1,19 +1,38 @@
 const assert = require('assert');
-
 let schemaInterface = {};
+const UnauthorizedError = require('./UnauthorizedError');
 
+
+/**
+ * the interface to create a knock-knock schema
+ * there is two type of schemas:
+ * * login-schema: which implemented {@link schemaInterface#knockLogin}, to authenticate a user(e.g. login with username and password) and create a user session(e.g. token or session-id)
+ * * auth-schema: which implemented {@link schemaInterface#knockAuth}, to authorize a user(e.g. verify a token or session-id)
+ *
+ * They both do the same way: get param from `req`, and set `req.user` if it's succeed or set `req.unauthorizedError` otherwise.
+ * But conceptual login-schema focus on authentication step due auth-schema focus on authorization step
+ * @interface
+ * @alias schemaInterface
+ *
+ */
 schemaInterface.interface = {
     /**
-     * return user or set req.user field
-     * throw error or set req.unauthorizedError field
+     * **must implement this for login-schema**.
+     * @async
+     * @param {Object} req - `req.user` should be set if user authorized or `req.unauthorizedError` should be set if error
+     * @param {Object} res - same like **express**
+     * @function schemaInterface#knockLogin
      */
-    login: 'knockLogin',//async function (req,res)
+    login: 'knockLogin',
 
     /**
-     * return user or set req.user field
-     * throw error or set req.unauthorizedError field
+     * **must implement this for auth schema**.
+     * @async
+     * @param {Object} req - `req.user` should be set if user authorized or `req.unauthorizedError` should be set if error
+     * @param {Object} res - same like **express**
+     * @function schemaInterface#knockAuth
      */
-    auth: 'knockAuth'//async function (req,res)
+    auth: 'knockAuth'
 };
 
 schemaInterface.hasRequiredFunction =
@@ -23,16 +42,16 @@ schemaInterface.hasRequiredFunction =
 
 schemaInterface.optional = {
     login: [
-        'login',//async function (req, res)
-        'loginResponse',//async function (req, res)
-        'oauthLogin',//async function (req, res)
-        'oauthCallback'//async function (req, res)
+        'login',
+        'loginResponse',
+        'oauthLogin',
+        'oauthCallback'
     ],
     auth: [
-        'create',//async function (req, res)
-        'auth',//async function (req, res)
-        'authResponse',//async function (req, res)
-        'revoke'//async function (req,res)
+        'create',
+        'auth',
+        'authResponse',
+        'revoke'
     ]
 };
 
@@ -48,22 +67,48 @@ schemaInterface.lazy = {
     ]
 };
 
+/**
+ * @typedef responseFunction
+ * async function (schema,req,res)
+ * @function
+ * @async
+ * @param schema with schema.name
+ * @param req
+ * @param res
+ */
+
+/**
+ * @typedef KnockKnock~Option
+ * @property {responseFunction} [globalLoginResponse] the global login response function
+ * @property {responseFunction} [globalAuthResponse] the global auth response function
+ * @property {boolean} [throwUnauthorizedError=true] should throw error when unauthorized-error occurs otherwise knock-knock just only set req.unauthorizedError
+ */
+
+/**
+ * @private
+ * @param {KnockKnock~Option} option
+ * @return {{globalAuthResponse}|*}
+ */
 function normalizeOption(option) {
     option = option ? option : {};
     option.throwUnauthorizedError = option.throwUnauthorizedError || true;
 
-    /**
-     * async function (schema,req,res)
-     * @param schema with schema.name
-     * @param req
-     * @param res
-     */
+
     option.globalLoginResponse = option.globalLoginResponse && typeof option.globalLoginResponse === 'function' ? option.globalLoginResponse : undefined;
     option.globalAuthResponse = option.globalAuthResponse && typeof option.globalAuthResponse === 'function' ? option.globalAuthResponse : undefined;
     return option;
 }
 
+/**
+ * knock-knock main class
+ * you should enable least one login-schema {@link}
+ */
 class KnockKnock {
+
+    /**
+     * @constructor
+     * @param {KnockKnock~Option} option
+     */
     constructor(option) {
         this.schemas = new Map();
         this.defaultSchemasCache = {};
@@ -78,7 +123,7 @@ class KnockKnock {
      * KnockKnock won't work until at least  one schema with `schema.checkType==schemaType.LOGIN` is enabled
      * @param name
      * @param schema
-     * @param setDefault
+     * @param setDefault {boolean} 'true'
      * @param verifyLogin - custom verifyLogin, will override
      */
     enable(name, schema, setDefault = false, verifyLogin = null) {
@@ -110,7 +155,7 @@ class KnockKnock {
     };
 
     /**
-     * is KnockKnock able to work
+     * is able to work
      * @return {boolean}
      */
     get valid() {
@@ -121,10 +166,10 @@ class KnockKnock {
     }
 
     /**
-     *
-     * @param name null for default schema
+     * @param name
      * @param type
-     * @return {any}
+     * @return {null|unknown}
+     * @private
      */
     _preferSchema(name, type = null) {
         if (name) {
@@ -156,6 +201,14 @@ class KnockKnock {
         return req.params[param] || req.query[param] || req.cookies[param] || req.body[param];
     }
 
+    /**
+     *
+     * @param schema
+     * @param req
+     * @param res
+     * @return {{auth: auth, login: login}}
+     * @private
+     */
     _manual(schema, req, res) {
         function setUser(user) {
             if (user) {
@@ -170,7 +223,7 @@ class KnockKnock {
 
             let user = setUser(await schema[schemaInterface.interface.login](req, res) || req.user);
             if (res.headersSent)
-                throw new module.exports.UnauthorizedError("don't end res in schema", schema);
+                throw new UnauthorizedError("don't end res in schema", schema);
 
             if (user && !req.unauthorizedError) {
                 let auth = this._preferSchema(this._getParamFromReq(req, schemaInterface.interface.auth), 'auth');
@@ -191,7 +244,7 @@ class KnockKnock {
         let auth = async () => {
             setUser(await schema[schemaInterface.interface.auth](req, res) || req.user);
             if (res.headersSent)
-                throw new module.exports.UnauthorizedError("don't end res in schema", schema);
+                throw new UnauthorizedError("don't end res in schema", schema);
 
             if (typeof (schema['authResponse']) === 'function') {
                 await schema['authResponse'](req, res);
@@ -204,10 +257,14 @@ class KnockKnock {
         return {login, auth};
     }
 
+    /**
+     * @todo implement this
+     * @param router
+     */
     lazy(router) {
 
     }
-}
+};
 
 (function createOptionalMethods() {
     for (let [type, methods] of Object.entries(schemaInterface.lazy)) {
@@ -244,7 +301,7 @@ class KnockKnock {
                                 let user = await this._manual(schema, req, res)[type]();
                                 user = user || req.user;
                                 if (!user && !req.unauthorizedError) {
-                                    req.unauthorizedError = new module.exports.UnauthorizedError(
+                                    req.unauthorizedError = new UnauthorizedError(
                                         `must set req.user if login/auth success or set req.unauthorizedError otherwise`, schema
                                     );
                                 }
@@ -260,8 +317,8 @@ class KnockKnock {
                             next();
                         } catch
                             (err) {
-                            if (!(err instanceof module.exports.UnauthorizedError))
-                                req.unauthorizedError = new module.exports.UnauthorizedError(`internal error`, schema, err);
+                            if (!(err instanceof UnauthorizedError))
+                                req.unauthorizedError = new UnauthorizedError(`internal error`, schema, err);
 
                             if (this.option.throwUnauthorizedError) {
                                 next(req.unauthorizedError);
@@ -276,10 +333,6 @@ class KnockKnock {
     }
 })();
 
-module.exports = function (options) {
-    return new KnockKnock(options);
-};
 
-module.exports.class = KnockKnock;
-module.exports.mockLoginSchema = require('./mock-login-schema');
-module.exports.UnauthorizedError = require('./UnauthorizedError');
+module.exports = KnockKnock;
+

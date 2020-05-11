@@ -1,18 +1,28 @@
 {
   "name": "knock-knock",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "authorization system",
   "main": "knock-knock.js",
   "author": "goolyuyi",
   "license": "MIT",
   "scripts": {
-    "test": "mocha ./test"
+    "test": "mocha ./test",
+    "build": "yarn run doc-readme",
+    "doc-readme": "cd ./doc && node build.js"
   },
   "devDependencies": {
     "chai": "^4.2.0",
     "chai-http": "^4.3.0",
+    "common-docs": ">=0.0.1",
     "cookie-parser": "^1.4.5",
     "express": "^4.17.1",
+    "handlebars": "^4.7.6",
     "mocha": "^7.1.1"
+  },
+  "engines": {
+    "node": ">=12.0.0"
+  },
+  "dependencies": {
+    "mixin-deep": "^2.0.1"
   }
 }
