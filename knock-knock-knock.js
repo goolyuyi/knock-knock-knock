@@ -1,10 +1,9 @@
 const assert = require('assert');
-/**
- * @interface
- * @type {{}}
- */
+const UnauthorizedError = require('./UnauthorizedError');
+
 let schemaInterface = {};
 /**
+ * a schema must implement one of the interface's methods
  * @interface
  */
 schemaInterface.interface = {
@@ -35,6 +34,7 @@ schemaInterface.hasRequiredFunction =
 
 schemaInterface.optional = {
     /**
+     * if the schema implemented this interface , it is able to use {@link KnockKnockKnock#[schemaFunctions]} to call this function in schema
      * @interface schemaInterface.loginOptional
      */
     login: [
@@ -52,6 +52,7 @@ schemaInterface.optional = {
         'oauthCallback'
     ],
     /**
+     * if the schema implemented this interface , it is able to use {@link KnockKnockKnock#[schemaFunctions]} to call this function in schema
      * @interface schemaInterface.authOptional
      */
     auth: [
@@ -91,15 +92,15 @@ schemaInterface.lazy = {
  */
 
 /**
- * @typedef KnockKnock~Option
+ * @typedef KnockKnockKnock~Option
  * @property {responseFunction} [globalLoginResponse] the global login response function
  * @property {responseFunction} [globalAuthResponse] the global auth response function
- * @property {boolean} [throwUnauthorizedError=true] should throw error when unauthorized-error occurs otherwise knock-knock just only set req.unauthorizedError
+ * @property {boolean} [throwUnauthorizedError=true] should throw error when unauthorized-error occurs otherwise knock-knock-knock just only set req.unauthorizedError
  */
 
 /**
  * @private
- * @param {KnockKnock~Option} option
+ * @param {KnockKnockKnock~Option} option
  * @return {{globalAuthResponse}|*}
  */
 function normalizeOption(option) {
@@ -113,14 +114,13 @@ function normalizeOption(option) {
 }
 
 /**
- * knock-knock main class
- * you should enable least one login-schema {@link}
+ * knock-knock-knock main class
  */
-class KnockKnock {
+class KnockKnockKnock {
 
     /**
      * @constructor
-     * @param {KnockKnock~Option} option
+     * @param {KnockKnockKnock~Option} option
      */
     constructor(option) {
         this.schemas = new Map();
@@ -128,28 +128,25 @@ class KnockKnock {
         this.option = normalizeOption(option);
     }
 
-    // eslint disable-next-line
+    /* eslint-disable */
     static symbolDefault = Symbol('default');
 
     /**
      * enable a schema
-     * KnockKnock won't work until at least  one schema with `schema.checkType==schemaType.LOGIN` is enabled
+     * knock-knock-knock won't work until at least  one schema with `schema.checkType==schemaType.LOGIN` is enabled
      * @param name {string} schama name
      * @param schema {schemaInterface} schema
      * @param setDefault {boolean} default use the schema if user won't specify a schema name {@link }
      */
-    enable(name, schema, setDefault = false, verifyLogin = null) {
-        if (name && typeof name === 'string') schema.name = name;
-        else name = schema.name;
+    enable(name, schema, setDefault = false) {
+        assert(name);
+        if (name && typeof name === 'string') schema['name'] = name;
 
         assert(name);
         assert(schema && typeof schema === 'object');
 
-        schema[KnockKnock.symbolDefault] = setDefault;
+        schema[KnockKnockKnock.symbolDefault] = setDefault;
 
-        if (verifyLogin && typeof (verifyLogin) === 'function') {
-            schema['verify'] = verifyLogin;
-        }
         this.schemas.set(name, schema);
         this.defaultSchemasCache = {};
 
@@ -168,7 +165,7 @@ class KnockKnock {
 
     /**
      * check able to work
-     * knock-knock won't available until least one login-schema are enabled
+     * knock-knock-knock won't available until least one login-schema are enabled
      * @return {boolean}
      */
     get valid() {
@@ -181,7 +178,7 @@ class KnockKnock {
     /**
      *
      * @param name schema name
-     * @param type {"auth"|"login"} `auth` or `login`
+     * @param type {"auth"|"login"|null} `auth` or `login`
      * @return {any}
      * @private
      */
@@ -194,7 +191,7 @@ class KnockKnock {
         } else if (type) {
             if (!this.defaultSchemasCache[type]) {
                 this.defaultSchemasCache[type] = Array.from(this.schemas.values()).find((i) => {
-                    return i[KnockKnock.symbolDefault] && schemaInterface.hasRequiredFunction(i, type);
+                    return i[KnockKnockKnock.symbolDefault] && schemaInterface.hasRequiredFunction(i, type);
                 });
             }
             return this.defaultSchemasCache[type];
@@ -264,83 +261,80 @@ class KnockKnock {
     lazy(router) {
 
     }
-};
+}
 
 /**
+ * get the functions from schema who implemented the interface {@link schemaInterface.loginOptional} and {@link schemaInterface.authOptional}
  *
- * @function KnockKnock#[lazyFunctions]
+ * e.g if a schema which implements {@link schemaInterface.loginOptional.oauthLogin} it could call `knockKnockKnock.oauthLogin(schemaName)(<schema specified args>)`
+ * @function KnockKnockKnock#[schemaFunctions]
+ * @param {string} schemaName schema name {@link KnockKnockKnock#enable}
  */
 (function createOptionalMethods() {
-        for (let [type, methods] of Object.entries(schemaInterface.lazy)) {
-            methods.forEach((method) => {
-                    KnockKnock.prototype[method] = function (schemaName) {
-                        let schema;
-                        if (schemaName) {
-                            schema = this._preferSchema(schemaName, type);
-                        }
+    for (let [type, methods] of Object.entries(schemaInterface.lazy)) {
+        methods.forEach((method) => {
+                KnockKnockKnock.prototype[method] = function (schemaName) {
+                    let schema;
+                    if (schemaName) {
+                        schema = this._preferSchema(schemaName, type);
+                    }
 
-                        return async (req, res, next) => {
-                            try {
-                                assert(this.valid);
+                    return async (req, res, next) => {
+                        try {
+                            assert(this.valid);
 
-                                //deduce schema hint from req
-                                if (!schema) {
-                                    schema = this._preferSchema(
-                                        this._getParamFromReq(req, type === 'login' ?
-                                            schemaInterface.interface.login :
-                                            schemaInterface.interface.auth
-                                        )
-                                        , type);
+                            //deduce schema hint from req
+                            if (!schema) {
+                                schema = this._preferSchema(
+                                    this._getParamFromReq(req, type === 'login' ?
+                                        schemaInterface.interface.login :
+                                        schemaInterface.interface.auth
+                                    )
+                                    , type);
+                            }
+
+
+                            assert(schema && typeof (schema[method]) === 'function');
+                            let isInterfaceMethod = Object.values(schemaInterface.interface).some(
+                                (v) => {
+                                    return schema[v] === schema[method]
+                                }
+                            )
+
+                            if (isInterfaceMethod) {
+                                let user = await this._manual(schema, req, res)[type]();
+                                user = user || req.user;
+                                if (!user && !req.unauthorizedError) {
+                                    req.unauthorizedError = new UnauthorizedError(
+                                        `must set req.user if login/auth success or set req.unauthorizedError otherwise`, schema
+                                    );
                                 }
 
+                            } else {
+                                await schema[method](req, res);
+                            }
 
-                                assert(schema && typeof (schema[method]) === 'function');
-                                let isInterfaceMethod = Object.values(schemaInterface.interface).some(
-                                    (v) => {
-                                        return schema[v] === schema[method]
-                                    }
-                                )
+                            if (req.unauthorizedError) {
+                                throw req.unauthorizedError;
+                            }
 
-                                if (isInterfaceMethod) {
-                                    let user = await this._manual(schema, req, res)[type]();
-                                    user = user || req.user;
-                                    if (!user && !req.unauthorizedError) {
-                                        req.unauthorizedError = new module.exports.UnauthorizedError(
-                                            `must set req.user if login/auth success or set req.unauthorizedError otherwise`, schema
-                                        );
-                                    }
+                            next();
+                        } catch
+                            (err) {
+                            if (!(err instanceof UnauthorizedError))
+                                req.unauthorizedError = new UnauthorizedError(`internal error`, schema, err);
 
-                                } else {
-                                    await schema[method](req, res);
-                                }
-
-                                if (req.unauthorizedError) {
-                                    throw req.unauthorizedError;
-                                }
-
+                            if (this.option.throwUnauthorizedError) {
+                                next(req.unauthorizedError);
+                            } else {
                                 next();
-                            } catch
-                                (err) {
-                                if (!(err instanceof module.exports.UnauthorizedError))
-                                    req.unauthorizedError = new module.exports.UnauthorizedError(`internal error`, schema, err);
-
-                                if (this.option.throwUnauthorizedError) {
-                                    next(req.unauthorizedError);
-                                } else {
-                                    next();
-                                }
                             }
                         }
                     }
                 }
-            )
-        }
-    })();
+            }
+        )
+    }
+})();
 
-module.exports = function (options) {
-    return new KnockKnock(options);
-};
-
-module.exports.class = KnockKnock;
-module.exports.mockLoginSchema = require('./mock-login-schema');
-module.exports.UnauthorizedError = require('./UnauthorizedError');
+module.exports = KnockKnockKnock

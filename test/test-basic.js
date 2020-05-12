@@ -3,7 +3,7 @@ const expect = require('chai').expect;
 const chaiHttp = require('chai-http');
 chai.use(chaiHttp);
 
-let knockKnock = require('../knock-knock')({});
+let knockKnock = require('../knock-knock-knock')({});
 
 describe('knock-knock system', function () {
     describe('basic', function () {

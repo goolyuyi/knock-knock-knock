@@ -1,9 +1,9 @@
-const KnockKnock = require('./knock-knock');
+const KnockKnockKnock = require('./knock-knock-knock');
 
 module.exports = function (options) {
-    return new KnockKnock(options);
+    return new KnockKnockKnock(options);
 };
 
-module.exports.class = KnockKnock;
+module.exports.class = KnockKnockKnock;
 module.exports.mockLoginSchema = require('./mock-login-schema');
 module.exports.UnauthorizedError = require('./UnauthorizedError');

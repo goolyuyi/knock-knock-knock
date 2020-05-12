@@ -5,8 +5,8 @@ app.use(express.json());
 app.use(cookieParser('top-secret'));
 app.use(express.urlencoded({extended: false}));
 
-let {UnauthorizedError} = require('knock-knock');
-let knockKnock = require('knock-knock')({});
+let {UnauthorizedError} = require('knock-knock/knock-knock-knock');
+let knockKnock = require('knock-knock/knock-knock-knock')({});
 
 let openidSchema = require('google-openid-schema');
 
