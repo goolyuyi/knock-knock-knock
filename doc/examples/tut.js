@@ -1,18 +1,30 @@
+/**
+ * m
+ * @file
+ */
+
 let express = require('express');
 let cookieParser = require('cookie-parser');
 let app = express();
 app.use(express.json());
 app.use(cookieParser());
 
-let knockKnock = require('../knock-knock')({});
-knockKnock.enable('test', require('./all-schema'), true);
+let kkk = require('knock-knock-knock')({});
+kkk.enable('test', require('knock-password-schema'));
 
-app.post('/login', knockKnock.login(), (req, res, next) => {
-    if (req.unauthorizedError)//req.unauthorizedError if err
+app.post('/login', kkk.login('test'), (req, res, next) => {
+    //req.unauthorizedError if err
+    if (req.unauthorizedError)
         res.send('denied:' + req.unauthorizedError)
 
-    if (req.user)//set req.user if ok
+    //set req.user if ok
+    if (req.user){
+        //kkk will only make sure the auth/login process is legal
+        //more verify operation here
+        //...
+
         res.send('okay!');
+    }
 });
 
 module.exports = app;

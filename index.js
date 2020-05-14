@@ -1,4 +1,4 @@
-const KnockKnockKnock = require('./knock-knock-knock');
+const KnockKnockKnock = require('./');
 
 module.exports = function (options) {
     return new KnockKnockKnock(options);

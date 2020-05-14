@@ -3,13 +3,13 @@ const expect = require('chai').expect;
 const chaiHttp = require('chai-http');
 chai.use(chaiHttp);
 
-let knockKnock = require('../knock-knock-knock')({});
+let knockKnock = require('../index')({});
 
 describe('knock-knock system', function () {
     describe('basic', function () {
         let testSchema;
         beforeEach(function () {
-            knockKnock = new knockKnock.constructor();
+            knockKnock = new knockKnock.constructor({});
         });
 
         before(function () {
