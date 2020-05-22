@@ -4,7 +4,7 @@ const chaiHttp = require('chai-http');
 chai.use(chaiHttp);
 
 const KKK = require('../');
-let kkk= new KKK();
+let kkk = new KKK();
 
 describe('kkk basic', function () {
     describe('basic', function () {
@@ -29,7 +29,9 @@ describe('kkk basic', function () {
 
         it('valid', function () {
             expect(kkk.valid).is.false;
-            kkk.enable('test', {});
+            expect(() => {
+                kkk.enable('test', {})
+            }).to.throw();
             expect(kkk.valid).is.false;
             kkk.enable('test', testSchema);
             expect(kkk.valid).is.true;
