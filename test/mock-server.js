@@ -5,10 +5,11 @@ let app = express();
 app.use(express.json());
 app.use(cookieParser());
 
-let knockKnock = require('../index')({});
-knockKnock.enable('test', require('./sample-schema'), true);
+const KKK = require('../');
+const kkk = new KKK({});
+kkk.enable('test', require('./test-schema'),true);
 
-app.post('/login', knockKnock.login(), (req, res, next) => {
+app.post('/login', kkk.knockLogin('test'), (req, res, next) => {
     res.send('okay');
 });
 

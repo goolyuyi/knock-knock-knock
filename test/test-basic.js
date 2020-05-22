@@ -3,13 +3,14 @@ const expect = require('chai').expect;
 const chaiHttp = require('chai-http');
 chai.use(chaiHttp);
 
-let knockKnock = require('../index')({});
+const KKK = require('../');
+let kkk= new KKK();
 
-describe('knock-knock system', function () {
+describe('kkk basic', function () {
     describe('basic', function () {
         let testSchema;
         beforeEach(function () {
-            knockKnock = new knockKnock.constructor({});
+            kkk = new kkk.constructor({});
         });
 
         before(function () {
@@ -21,21 +22,17 @@ describe('knock-knock system', function () {
         });
 
         it('enable/disable', function () {
-            knockKnock.enable('test', testSchema);
-            knockKnock.disable('test');
-            knockKnock.enable('test', testSchema, true);
-            knockKnock.disable('test');
-            console.log(knockKnock);
+            kkk.enable('test', testSchema);
+            kkk.disable('test');
+            console.log(kkk);
         });
 
         it('valid', function () {
-            expect(knockKnock.valid).is.false;
-            knockKnock.enable('test', {});
-            expect(knockKnock.valid).is.false;
-            knockKnock.enable('test', testSchema);
-            expect(knockKnock.valid).is.true;
+            expect(kkk.valid).is.false;
+            kkk.enable('test', {});
+            expect(kkk.valid).is.false;
+            kkk.enable('test', testSchema);
+            expect(kkk.valid).is.true;
         });
-
-
     });
 });

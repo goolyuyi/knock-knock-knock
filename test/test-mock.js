@@ -5,7 +5,7 @@ chai.use(chaiHttp);
 
 const testServer = require('./mock-server');
 
-describe('knock-knock', function () {
+describe('kkk mock', function () {
     describe('mock-login', function () {
         let agent;
         before(function () {
