@@ -1,6 +1,6 @@
 {
   "name": "knock-knock-knock",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "An authorization framework!",
   "main": "index.js",
   "author": "goolyuyi <goolyuyi@gmail.com> https://github.com/goolyuyi/",
